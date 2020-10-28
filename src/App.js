@@ -5,9 +5,8 @@ import './App.css';
 import { stream$ } from './services/stream';
 
 
-function App() {
+function App({ onStateChange }) {
   const [state, updateState] = useState(null);
-  // const forceUpdate = useCallback(() => updateState(stream$.value), []);
 
   useEffect(() => {
     stream$.subscribe(val => {
@@ -15,11 +14,16 @@ function App() {
     });
   },[]);
 
+  useEffect(() => {
+    if (onStateChange) onStateChange(state);
+  },[state]);
+
+
   return (
     <div className="App">
-      <div className="temp"><span>{"temp: "}</span><span>{state?.temp.value}</span></div>
-      <div className="pres">{["pres: ", state?.pres.value]}</div>
-      <div className="hum">{["hum: ", state?.hum.value]}</div>
+      <div className="temp"><span>{"temp: "}</span><span>{state?.temp.value || 'n/a'}</span></div>
+      <div className="pres">{["pres: ", state?.pres.value || 'n/a']}</div>
+      <div className="hum">{["hum: ", state?.hum.value || 'n/a']}</div>
     </div>
   );
 }

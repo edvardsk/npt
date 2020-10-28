@@ -1,50 +1,46 @@
 import { concatMap, debounceTime, map, bufferTime } from 'rxjs/operators';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 
 import humEmit$ from './hum';
 import presEmit$ from './pres';
 import tempEmit$ from './temp';
 
 /*
-Display object should not be emitted more often than every 100ms
-Display object should only be emitted when one of the systems sends a new value
-If a value is not received from a specific system for more than 1000ms, its reading (in the display object) should be 'N/A'
-All 3 systems must emit at least one value before 1 display object is ever sent to the dashboard.
+  Display object should not be emitted more often than every 100ms
+  Display object should only be emitted when one of the systems sends a new value
+  If a value is not received from a specific system for more than 1000ms, its reading (in the display object) should be 'N/A'
+  All 3 systems must emit at least one value before 1 display object is ever sent to the dashboard.
 * */
 
 let obj = {
   hum: {
-    updateTime: null,
     value: null,
     isInit: false,
+    delayTimeout: null,
   },
   temp: {
-    updateTime: null,
     value: null,
     isInit: false,
+    delayTimeout: null,
   },
   pres: {
-    updateTime: null,
     value: null,
     isInit: false,
+    delayTimeout: null,
   }
 };
 
-export const stream$ = new BehaviorSubject(obj).pipe(debounceTime(100)); // 100ms condition
+export const stream$ = new Subject().pipe(debounceTime(100)); // 100ms condition
 
-let delayTimeout;
 function delayWait(type) { // 1000ms 'n/a' condition
-  clearTimeout(delayTimeout);
+  clearTimeout(obj[type].delayTimeout);
 
-  setTimeout(() => {
-    obj[type].value = 'n/a';
+  obj[type].delayTimeout = setTimeout(() => {
+    obj[type].value = null;
   }, 1000);
 }
 
-function emitUpdate(date, type) {
-  delayWait(type);
-  obj[type].updateTime = date;
-
+function emitUpdate() {
   if (!obj.hum.isInit || !obj.temp.isInit || !obj.pres.isInit) { // '3 systems must emit' condition
     return;
   }
@@ -52,18 +48,11 @@ function emitUpdate(date, type) {
 }
 
 export const normalize = type => data => {
+  delayWait(type);
+  if (data === obj[type].value) return; // new value check
   obj[type].value = data;
   obj[type].isInit = true;
-
-  let date = Date.now();
-  let delta = date - obj[type].updateTime;
-  if (delta < 100) { // 100ms condition for each
-    setTimeout(() => {
-      emitUpdate(date, type);
-    }, (100 - delta))
-  } else {
-    emitUpdate(date, type);
-  }
+  emitUpdate('date', type);
 }
 
 const normHum = normalize('hum');
